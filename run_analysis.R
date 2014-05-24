@@ -20,7 +20,7 @@ features <- read.csv("./features.txt",header=F,sep=" ",col.names=c("id","feature
 
 # Prep the test file
 subjecttest <- read.table("./test/subject_test.txt",header=F,col.names="subjectid")
-xtest <- read.table("./test/x_test.txt",header=F,col.names=tolower(gsub("[\\,\\(\\)\\.\\-]","",features[,2])))
+xtest <- read.table("./test/X_test.txt",header=F,col.names=tolower(gsub("[\\,\\(\\)\\.\\-]","",features[,2])))
 ytest <- read.table("./test/y_test.txt",header=F,col.names="activityid")
 test <- cbind("test",subjecttest,ytest,xtest)
 colnames(test)[1] <- "filesource"
@@ -28,7 +28,7 @@ test[1:5,1:7]
 
 # Prep the train file
 subjecttrain <- read.table("./train/subject_train.txt",header=F,col.names="subjectid")
-xtrain <- read.table("./train/x_train.txt",header=F,col.names=tolower(gsub("[\\,\\(\\)\\.\\-]","",features[,2])))
+xtrain <- read.table("./train/X_train.txt",header=F,col.names=tolower(gsub("[\\,\\(\\)\\.\\-]","",features[,2])))
 ytrain <- read.table("./train/y_train.txt",header=F,col.names="activityid")
 train <- cbind("train",subjecttrain,ytrain,xtrain)
 colnames(train)[1] <- "filesource"
@@ -41,7 +41,23 @@ tidy[c(1:5,8000:8004),1:7]
 #### Extract Mean & Standard Deviation Measurements
 tidyms <- tidy[,c(1:3,grep("mean.*\\(\\)",features[,2],ignore.case=T)+3,
         grep("std\\(\\)",features[,2],ignore.case=T)+3)]
-tidyms[c(1:5,8000:8004),1:7]
+
+# Add english version of activity label into data frame
+tidyms <- merge(tidyms, activitylabels, by.x="activityid", by.y="id")
+tidyms[c(1:5,8000:8004),c(1:7,83)]
+
+#### Final tidy data set with 180 observations
+tidysummary <- melt(tidyms, id.vars=c("subjectid", "activitylabel"))
+tidysummary[,4] <- as.numeric(tidysummary[,4])
+final <- dcast(tidysummary, subjectid + activitylabel ~ variable, fun.aggregate=mean)
+final <- cbind(final[,-(3:4)])
 
 # Create codebook
-write.csv(colnames(tidyms),"./codebook.csv")
+write.csv(colnames(final),"./codebook.csv")
+
+# Export file
+write.csv(final,"./tidy data set.csv")
+
+# Clean up
+rm(activitylabels, features, subjecttest, subjecttrain, test, tidyms,
+   tidysummary, train, xtest, xtrain, ytest, ytrain)

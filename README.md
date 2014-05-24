@@ -23,6 +23,16 @@ Finally, I merged the two files together using ```rbind()```.
 #### Extract Mean & Standard Deviation Measurements
 I decided to keep those variables that had the word mean or std in them and were
 the main function. So I kept mean() or meanfreq(), but not something like 
+anglezgravitymean would not show up because to me that wasn't the point of 
+mean and std calculations.
+
+#### Tidy Data Output
+I used melt and dcast to trim the data down and then summarize. I then output
+the file as a csv with headers.
+
+----
+----
+----
 
 ### Assessment Directions
 You should create one R script called run_analysis.R that does the following:
