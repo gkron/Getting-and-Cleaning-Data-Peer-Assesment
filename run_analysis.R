@@ -1,63 +1,65 @@
-#### Downloading Data
-# Set the url for the file to download and download
-localfilepath = "./UCI HAR Dataset.zip"
+library(data.table)
+library(dplyr)
 
-# Check to see if the zip file is there. If it is then don't download it.
-if (file.exists(localfilepath)){
-        warning("Zip file exists in working directory.")
-} else {
-        fileurl <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
-        download.file(fileurl, "./UCI HAR Dataset.zip")
+featureNames <- read.table("UCI HAR Dataset/features.txt")
+activityLabels <- read.table("UCI HAR Dataset/activity_labels.txt", header = FALSE)
+
+subjectTrain <- read.table("UCI HAR Dataset/train/subject_train.txt", header = FALSE)
+activityTrain <- read.table("UCI HAR Dataset/train/y_train.txt", header = FALSE)
+featuresTrain <- read.table("UCI HAR Dataset/train/X_train.txt", header = FALSE)
+
+subjectTest <- read.table("UCI HAR Dataset/test/subject_test.txt", header = FALSE)
+activityTest <- read.table("UCI HAR Dataset/test/y_test.txt", header = FALSE)
+featuresTest <- read.table("UCI HAR Dataset/test/X_test.txt", header = FALSE)
+
+subject <- rbind(subjectTrain, subjectTest)
+activity <- rbind(activityTrain, activityTest)
+features <- rbind(featuresTrain, featuresTest)
+
+colnames(features) <- t(featureNames[2])
+
+colnames(activity) <- "Activity"
+colnames(subject) <- "Subject"
+completeData <- cbind(features,activity,subject)
+
+
+columnsWithMeanSTD <- grep(".*Mean.*|.*Std.*", names(completeData), ignore.case=TRUE)
+
+
+requiredColumns <- c(columnsWithMeanSTD, 562, 563)
+dim(completeData)
+
+extractedData <- completeData[,requiredColumns]
+dim(extractedData)
+
+
+extractedData$Activity <- as.character(extractedData$Activity)
+for (i in 1:6){
+  extractedData$Activity[extractedData$Activity == i] <- as.character(activityLabels[i,2])
 }
 
-# Print file time
-file.info(localfilepath)$ctime
+extractedData$Activity <- as.factor(extractedData$Activity)
 
-#### File Preparation
-# Load secondary files
-activitylabels <- read.csv("./activity_labels.txt",header=F,sep=" ",col.names=c("id","activitylabel"))
-features <- read.csv("./features.txt",header=F,sep=" ",col.names=c("id","featurelabel"))
+names(extractedData)
 
-# Prep the test file
-subjecttest <- read.table("./test/subject_test.txt",header=F,col.names="subjectid")
-xtest <- read.table("./test/X_test.txt",header=F,col.names=tolower(gsub("[\\,\\(\\)\\.\\-]","",features[,2])))
-ytest <- read.table("./test/y_test.txt",header=F,col.names="activityid")
-test <- cbind("test",subjecttest,ytest,xtest)
-colnames(test)[1] <- "filesource"
-test[1:5,1:7]
+names(extractedData)<-gsub("Acc", "Accelerometer", names(extractedData))
+names(extractedData)<-gsub("Gyro", "Gyroscope", names(extractedData))
+names(extractedData)<-gsub("BodyBody", "Body", names(extractedData))
+names(extractedData)<-gsub("Mag", "Magnitude", names(extractedData))
+names(extractedData)<-gsub("^t", "Time", names(extractedData))
+names(extractedData)<-gsub("^f", "Frequency", names(extractedData))
+names(extractedData)<-gsub("tBody", "TimeBody", names(extractedData))
+names(extractedData)<-gsub("-mean()", "Mean", names(extractedData), ignore.case = TRUE)
+names(extractedData)<-gsub("-std()", "STD", names(extractedData), ignore.case = TRUE)
+names(extractedData)<-gsub("-freq()", "Frequency", names(extractedData), ignore.case = TRUE)
+names(extractedData)<-gsub("angle", "Angle", names(extractedData))
+names(extractedData)<-gsub("gravity", "Gravity", names(extractedData))
 
-# Prep the train file
-subjecttrain <- read.table("./train/subject_train.txt",header=F,col.names="subjectid")
-xtrain <- read.table("./train/X_train.txt",header=F,col.names=tolower(gsub("[\\,\\(\\)\\.\\-]","",features[,2])))
-ytrain <- read.table("./train/y_train.txt",header=F,col.names="activityid")
-train <- cbind("train",subjecttrain,ytrain,xtrain)
-colnames(train)[1] <- "filesource"
-train[1:5,1:7]
+names(extractedData)
 
-# Merge the two files together
-tidy <- rbind(test,train)
-tidy[c(1:5,8000:8004),1:7]
+extractedData$Subject <- as.factor(extractedData$Subject)
+extractedData <- data.table(extractedData)
 
-#### Extract Mean & Standard Deviation Measurements
-tidyms <- tidy[,c(1:3,grep("mean.*\\(\\)",features[,2],ignore.case=T)+3,
-        grep("std\\(\\)",features[,2],ignore.case=T)+3)]
-
-# Add english version of activity label into data frame
-tidyms <- merge(tidyms, activitylabels, by.x="activityid", by.y="id")
-tidyms[c(1:5,8000:8004),c(1:7,83)]
-
-#### Final tidy data set with 180 observations
-tidysummary <- melt(tidyms, id.vars=c("subjectid", "activitylabel"))
-tidysummary[,4] <- as.numeric(tidysummary[,4])
-final <- dcast(tidysummary, subjectid + activitylabel ~ variable, fun.aggregate=mean)
-final <- cbind(final[,-(3:4)])
-
-# Create codebook (commented out because only used in prep work)
-#write.csv(colnames(final),"./codebook.csv")
-
-# Export file
-write.csv(final,"./tidy data set.csv")
-
-# Clean up
-rm(activitylabels, features, subjecttest, subjecttrain, test, tidyms,
-   tidysummary, train, xtest, xtrain, ytest, ytrain)
+tidyData <- aggregate(. ~Subject + Activity, extractedData, mean)
+tidyData <- tidyData[order(tidyData$Subject,tidyData$Activity),]
+write.table(tidyData, file = "Tidy.txt", row.names = FALSE)
